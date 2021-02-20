@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+</head>
+
+<body>
+    <script src="../dist/index.js"></script>
+    <script>
+        const s1 = Store.session('ss')
+        const s2 = Store.session('ss')
+
+        s1.set('name', '李白')
+        s2.set('age', 12)
+        s1.set('sex', '男')
+        s2.set('qq', 1987823480)
+
+        const l1 = Store.local('l1')
+        const l2 = Store.local('l1')
+        l1.set('name', '李白')
+        l2.set('age', '24')
+
+        const l3 = Store.local('l1')
+        l3.set('age', 12)
+    </script>
+</body>
+
+</html>
