@@ -3,42 +3,47 @@
  * @deprecated 对 Storage 的封装
  */
 
+/**
+ * Store 实例的内部缓存
+ */
 type Data = {
     [propName: string]: any
 }
 
+/**
+ * Storage 管理器
+ */
 export default class Store {
     /** 当前实例的标识 */
-    public readonly uuid: string = Math.random().toString(16).slice(2, 12)
+    #uuid: string = Math.random().toString(16).slice(2, 12)
 
     /** Storage */
-    private storage: Storage
-
-    /** Storage 类型 */
-    private dbtype: 'local' | 'session'
-
-    /** 命名空间 */
-    private dbname: string
+    #storage: Storage
 
     /**
      * 当前实例对数据的缓存
      */
-    private data: Data = {}
+    #data: Data = {}
 
     /**
-     * 实例销毁函数
+     * 实例销毁前的回调函数
      */
-    public destroy: Function
+    public destoryfn: Function[] = []
+
+    /**
+     * 获取当前空间下的所有数据
+     */
+    public get data() {
+        return this.#data
+    }
 
     /**
      * 创建数据库管理器实例
      * @param dbtype Storage 类型
      * @param dbname Storage 的键名
      */
-    public constructor(dbtype: 'local' | 'session', dbname?: string) {
-        this.dbtype = dbtype
-        this.dbname = dbname || 'clinfc-store'
-        this.storage = dbtype === 'local' ? window.localStorage : window.sessionStorage
+    public constructor(private dbtype: 'local' | 'session', private dbname: string = 'clinfc-store') {
+        this.#storage = dbtype === 'local' ? window.localStorage : window.sessionStorage
 
         this.synchrodata(false)
 
@@ -51,20 +56,20 @@ export default class Store {
 
         // 自定义 storage change 事件的回调函数
         const storagechangefn = (e: CustomEventInit) => {
-            if (e.detail && e.detail.dbname === this.dbname && e.detail.uuid !== this.uuid) {
+            if (e.detail && e.detail.dbname === this.dbname && e.detail.uuid !== this.#uuid) {
                 this.synchrodata(false)
             }
         }
 
+        // 绑定监听
         window.addEventListener('storage', storagefn)
         window.addEventListener(`${this.dbtype}storagechange`, storagechangefn)
 
-        // 初始化销毁函数
-        this.destroy = function () {
-            this.data = {}
+        // 销毁时取消监听事件
+        this.destoryfn.push(() => {
             window.removeEventListener('storage', storagefn)
             window.removeEventListener(`${this.dbtype}storagechange`, storagechangefn)
-        }
+        })
     }
 
     /**
@@ -74,14 +79,14 @@ export default class Store {
     public synchrodata(isSave: boolean = true) {
         if (isSave) {
             // 将当前实例中的数据保存到缓存中
-            this.storage.setItem(this.dbname, JSON.stringify(this.data))
+            this.#storage.setItem(this.dbname, JSON.stringify(this.#data))
         } else {
             // 将缓存中的数据同步到当前实例中
-            const data = this.storage.getItem(this.dbname)
+            const data = this.#storage.getItem(this.dbname)
             if (data && /^\{.*\}$/.test(data)) {
-                this.data = JSON.parse(data)
+                this.#data = JSON.parse(data)
             } else {
-                this.data = {}
+                this.#data = {}
             }
         }
     }
@@ -91,7 +96,7 @@ export default class Store {
      * @param key 键名
      */
     public has(key: string) {
-        return key in this.data
+        return key in this.#data
     }
 
     /**
@@ -100,18 +105,18 @@ export default class Store {
      */
     public get(key: string) {
         if (this.has(key)) {
-            return this.data[key]
+            return this.#data[key]
         }
         return null
     }
 
     /**
-     * 设置值
+     * 添加/设置值
      * @param key 键名
      * @param value 值
      */
     public set(key: string, value: any) {
-        this.data[key] = value
+        this.#data[key] = value
         this.synchrodata(true)
         this.dispatch()
         return this
@@ -123,7 +128,7 @@ export default class Store {
      */
     public remove(key: string) {
         if (this.has(key)) {
-            delete this.data[key]
+            delete this.#data[key]
             this.synchrodata(true)
             this.dispatch()
         }
@@ -134,23 +139,30 @@ export default class Store {
      * 清除数据
      */
     public clear() {
-        this.data = {}
-        this.storage.removeItem(this.dbname)
+        this.#data = {}
+        this.#storage.removeItem(this.dbname)
         this.dispatch()
         return this
     }
 
     /**
-     * 发布自定义 storage change 事件
-     * @param data 自定义事件中的自定义数据
+     * 销毁实例
+     */
+    public destroy() {
+        this.destoryfn.forEach(fn => fn.call(this))
+        this.#data = {}
+    }
+
+    /**
+     * 发布 sessionstoragechange/localstoragechange 事件
      */
     public dispatch() {
         const event = new CustomEvent(`${this.dbtype}storagechange`, {
             bubbles: true,
             cancelable: true,
             detail: {
+                uuid: this.#uuid,
                 dbname: this.dbname,
-                uuid: this.uuid,
             },
         })
         window.dispatchEvent(event)
