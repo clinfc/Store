@@ -3,6 +3,8 @@
  * @deprecated 对 Storage 的封装
  */
 
+import Events from './event'
+
 /**
  * Store 实例的内部缓存
  */
@@ -25,10 +27,7 @@ export default class Store {
      */
     #data: Data = {}
 
-    /**
-     * 实例销毁前的回调函数
-     */
-    public destoryfn: Function[] = []
+    public events: Events = new Events()
 
     /**
      * 获取当前空间下的所有数据
@@ -38,57 +37,52 @@ export default class Store {
     }
 
     /**
-     * 创建数据库管理器实例
-     * @param dbtype Storage 类型
-     * @param dbname Storage 的键名
+     * 获取当前空间下键值对的个数
      */
-    public constructor(private dbtype: 'local' | 'session', private dbname: string = 'clinfc-store') {
-        this.#storage = dbtype === 'local' ? window.localStorage : window.sessionStorage
+    public get size() {
+        return this.keys().length
+    }
+
+    /**
+     * 创建数据库管理器实例
+     * @param storage Storage 类型
+     * @param namespace Storage 的键名
+     */
+    public constructor(protected storage: 'local' | 'session', protected namespace: string = 'clinfc-store') {
+        this.#storage = storage === 'local' ? window.localStorage : window.sessionStorage
 
         this.synchrodata(false)
 
         // storage 事件的回调函数
         const storagefn = (e: StorageEvent) => {
-            if (e.key === this.dbname) {
+            if (e.key === this.namespace) {
                 this.synchrodata(false)
             }
         }
 
         // 自定义 storage change 事件的回调函数
         const storagechangefn = (e: CustomEventInit) => {
-            if (e.detail && e.detail.dbname === this.dbname && e.detail.uuid !== this.#uuid) {
+            if (e.detail && e.detail.namespace === this.namespace && e.detail.uuid !== this.#uuid) {
                 this.synchrodata(false)
             }
         }
 
         // 绑定监听
         window.addEventListener('storage', storagefn)
-        window.addEventListener(`${this.dbtype}storagechange`, storagechangefn)
+        window.addEventListener(`${this.storage}storagechange`, storagechangefn)
 
         // 销毁时取消监听事件
-        this.destoryfn.push(() => {
+        this.events.once('destory', () => {
             window.removeEventListener('storage', storagefn)
-            window.removeEventListener(`${this.dbtype}storagechange`, storagechangefn)
+            window.removeEventListener(`${this.storage}storagechange`, storagechangefn)
         })
     }
 
     /**
-     * 同步当前实例与 Storage 中的数据
-     * @param isSave true: 将实例缓存保存到 Storage 中；false: 将 Storage 中数据同步到当前实例中
+     * 获取当前命名空间下所有的键的集合。返回一个数组。
      */
-    public synchrodata(isSave: boolean = true) {
-        if (isSave) {
-            // 将当前实例中的数据保存到缓存中
-            this.#storage.setItem(this.dbname, JSON.stringify(this.#data))
-        } else {
-            // 将缓存中的数据同步到当前实例中
-            const data = this.#storage.getItem(this.dbname)
-            if (data && /^\{.*\}$/.test(data)) {
-                this.#data = JSON.parse(data)
-            } else {
-                this.#data = {}
-            }
-        }
+    public keys() {
+        return Object.keys(this.#data)
     }
 
     /**
@@ -111,6 +105,32 @@ export default class Store {
     }
 
     /**
+     * 批量获取数据。不存在的键名其值将为 null
+     * @param keys 需要获取的键名集合
+     */
+    public gets(...keys: string[]) {
+        const temp: Data = {}
+        keys.forEach(key => {
+            temp[key] = this.get(key)
+        })
+        return temp
+    }
+
+    /**
+     * 批量获取数据。只返回存在的键及其值
+     * @param keys 需要获取的键名集合
+     */
+    public only(...keys: string[]) {
+        const temp: Data = {}
+        keys.forEach(key => {
+            if (this.has(key)) {
+                temp[key] = this.get(key)
+            }
+        })
+        return temp
+    }
+
+    /**
      * 添加/设置值
      * @param key 键名
      * @param value 值
@@ -123,12 +143,31 @@ export default class Store {
     }
 
     /**
+     * 批量设置数据
+     * @param data Object 对象
+     */
+    public sets(data: Data) {
+        const entries = Object.entries(data)
+        if (entries.length) {
+            entries.forEach(([key, value]) => {
+                this.#data[key] = value
+            })
+            this.synchrodata(true)
+            this.dispatch()
+        }
+        return this
+    }
+
+    /**
      * 删除指定键名数据
      * @param key 需要被删除的键
      */
-    public remove(key: string) {
-        if (this.has(key)) {
-            delete this.#data[key]
+    public remove(...keys: string[]) {
+        keys = keys.filter(key => this.has(key))
+        if (keys.length) {
+            keys.forEach(key => {
+                delete this.#data[key]
+            })
             this.synchrodata(true)
             this.dispatch()
         }
@@ -140,7 +179,7 @@ export default class Store {
      */
     public clear() {
         this.#data = {}
-        this.#storage.removeItem(this.dbname)
+        this.#storage.removeItem(this.namespace)
         this.dispatch()
         return this
     }
@@ -149,7 +188,7 @@ export default class Store {
      * 销毁实例
      */
     public destroy() {
-        this.destoryfn.forEach(fn => fn.call(this))
+        this.events.emeit('destory')
         this.#data = {}
     }
 
@@ -157,30 +196,49 @@ export default class Store {
      * 发布 sessionstoragechange/localstoragechange 事件
      */
     public dispatch() {
-        const event = new CustomEvent(`${this.dbtype}storagechange`, {
+        const event = new CustomEvent(`${this.storage}storagechange`, {
             bubbles: true,
             cancelable: true,
             detail: {
                 uuid: this.#uuid,
-                dbname: this.dbname,
+                namespace: this.namespace,
             },
         })
         window.dispatchEvent(event)
     }
 
     /**
-     * 快捷创建 sessionStorage 类型数据库管理器实例
-     * @param dbname 数据库名称
+     * 同步当前实例与 Storage 中的数据
+     * @param isSave true: 将实例中的缓存数据保存到 Storage 中；false: 将 Storage 中数据同步到当前实例的缓存中
      */
-    public static session(dbname?: string) {
-        return new Store('session', dbname)
+    public synchrodata(isSave: boolean = true) {
+        if (isSave) {
+            // 将当前实例中的数据保存到缓存中
+            this.#storage.setItem(this.namespace, JSON.stringify(this.#data))
+        } else {
+            // 将缓存中的数据同步到当前实例中
+            const data = this.#storage.getItem(this.namespace)
+            if (data && /^\{.*\}$/.test(data)) {
+                this.#data = JSON.parse(data)
+            } else {
+                this.#data = {}
+            }
+        }
+    }
+
+    /**
+     * 快捷创建 sessionStorage 类型数据库管理器实例
+     * @param namespace 数据库名称
+     */
+    public static session(namespace?: string) {
+        return new Store('session', namespace)
     }
 
     /**
      * 快捷创建 localStorage 类型数据库管理器实例
-     * @param dbname 数据库名称
+     * @param namespace 数据库名称
      */
-    public static local(dbname?: string) {
-        return new Store('local', dbname)
+    public static local(namespace?: string) {
+        return new Store('local', namespace)
     }
 }

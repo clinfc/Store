@@ -21,12 +21,12 @@
 
 #### 用法
 
-> `store = new Store(dbtype, dbname)`
+> `store = new Store(storage, namespace)`
 
 参数|描述
 :-|:-|
-`dbtype`|创建的 `Storage` 管理器类型。可选值有 `session` 和 `local`，分别代表 `sessionStorage` 和 `localStorage`
-`dbname`|命名空间
+`storage`|创建的 `Storage` 管理器类型。可选值有 `session` 和 `local`，分别代表 `sessionStorage` 和 `localStorage`
+`namespace`|命名空间
 
 #### 示例
 
@@ -53,11 +53,11 @@ const store = new Store('local', 'local-store')
 
 #### 用法
 
-> `store = Store.session(dbname)`
+> `store = Store.session(namespace)`
 
 参数|描述
 :-|:-|
-`dbname`|命名空间
+`namespace`|命名空间
 
 #### 示例
 
@@ -73,11 +73,11 @@ const store = new Store('session', 'session-store')
 
 #### 用法
 
-> `store = Store.local(dbname)`
+> `store = Store.local(namespace)`
 
 参数|描述
 :-|:-|
-`dbname`|命名空间
+`namespace`|命名空间
 
 #### 示例
 
@@ -97,24 +97,38 @@ const store = new Store('local', 'local-store')
 
 获取当前空间下的所有数据。只读。
 
-## store.destoryfn
+## store.events
 
-实例销毁前执行的回调函数集合
+事件管理器（发布订阅）
 
 ```js
 const store = Store.local('local-store')
 
-// 添加销毁前回调函数
-store.destoryfn.push(function() {
+// 一次性事件
+store.evnets.once('destory', function() {
     store.remove('keys')
 })
 
-// 添加数据
-store.set('name', 'store')
-store.set('keys', ['name', 'age', 'sex', 'qq', 'tel'])
+function change(e) {}
 
-// 销毁当前实例
-store.destory()
+// 监听 change 事件
+store.events.on('change', change)
+
+// 发布 change 事件
+store.evnets.emit('change', {
+    key: 'age',
+    value: 24,
+    oldValue: 12
+})
+
+// 移除监听
+store.evnets.off('change', change)
+
+// 移除 change 事件下的所有监听
+store.events.remove('change')
+
+// 清除所有事件监听
+store.events.clear()
 ```
 
 
