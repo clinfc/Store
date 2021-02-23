@@ -55,9 +55,9 @@ const store = new Store('local', 'local-store')
 
 > `store = Store.session(namespace)`
 
-参数|描述
-:-|:-|
-`namespace`|命名空间
+参数|数据类型|描述
+:-|:-|:-|
+`namespace`|`String`|命名空间
 
 #### 示例
 
@@ -75,9 +75,9 @@ const store = new Store('session', 'session-store')
 
 > `store = Store.local(namespace)`
 
-参数|描述
-:-|:-|
-`namespace`|命名空间
+参数|数据类型|描述
+:-|:-|:-|
+`namespace`|`String`|命名空间
 
 #### 示例
 
@@ -99,7 +99,7 @@ const store = new Store('local', 'local-store')
 
 ## store.events
 
-事件管理器（发布订阅）
+事件管理器（发布订阅）。内置的事件有 `change` 和 `destory`。
 
 ```js
 const store = Store.local('local-store')
@@ -136,6 +136,24 @@ store.events.clear()
 
 # 实例方法
 
+## store.keys()
+
+获取所有的键名，返回一个一位数组。
+
+#### 用法
+
+> `store.keys()`
+
+### 示例
+
+```js
+const store = Store.local('local-store')
+store.set('name', 'store')
+store.set('keys', ['name', 'age', 'sex', 'qq', 'tel'])
+
+store.keys()        // ['name', 'keys']
+```
+
 ## store.set()
 
 添加/设置键值数据
@@ -157,6 +175,32 @@ store.set('name', 'store')
 store.set('keys', ['name', 'age', 'sex', 'qq', 'tel'])
 ```
 
+
+## store.sets()
+
+批量添加/设置数据
+
+#### 用法
+
+> `store.sets(data)`
+
+参数|数据类型|描述
+:-|:-|:-|
+`data`|`Object`|`Object`数据
+
+### 示例
+
+```js
+const store = Store.local('local-store')
+store.sets({ 
+    name: 'store',
+    age: 24,
+    sex: '男',
+    keys: ['name', 'age', 'sex', 'qq', 'tel'],
+})
+```
+
+
 ## store.get()
 
 获取指定键名的数据，该键名不存在时返回 `null`
@@ -173,13 +217,68 @@ store.set('keys', ['name', 'age', 'sex', 'qq', 'tel'])
 
 ```js
 const store = Store.local('local-store')
-store.set('name', 'store')
-store.set('keys', ['name', 'age', 'sex', 'qq', 'tel'])
+store.sets({ 
+    name: 'store',
+    age: 24,
+    sex: '男',
+    keys: ['name', 'age', 'sex', 'qq', 'tel'],
+})
 
 store.get('name')   // 'store'
 store.get('keys')   // ['name', 'age', 'sex', 'qq', 'tel']
-store.get('age')    // null
+store.get('tel')    // null
 ```
+
+## store.gets()
+
+批量获取数据。不存在的键名其值将为 `null`
+
+#### 用法
+
+> `store.gets(key1[, key2, key3...])`
+
+参数|数据类型|描述
+:-|:-|:-|
+`key`|`String`|键名
+
+### 示例
+
+```js
+const store = Store.local('local-store')
+store.set('name', 'store')
+store.set('age', 24)
+store.set('sex', '男')
+
+store.gets('name')                  // { name: 'store' }
+store.gets('name', 'age', 'tel')    // { name: 'store', age: 24, tel: null }
+```
+
+
+## store.only()
+
+批量获取数据。只返回存在的键及其值
+
+#### 用法
+
+> `store.only(key1[, key2, key3...])`
+
+参数|数据类型|描述
+:-|:-|:-|
+`key`|`String`|键名
+
+### 示例
+
+```js
+const store = Store.local('local-store')
+store.set('name', 'store')
+store.set('age', 24)
+store.set('sex', '男')
+
+store.gets('tel')                   // {}
+store.only('name', 'age', 'tel')    // { name: 'store', age: 24 }
+```
+
+
 ## store.has()
 
 判断缓存中是否包含指定键名
@@ -208,7 +307,7 @@ store.has('name')   // true
 
 #### 用法
 
-> `store.remove(key)`
+> `store.remove(key1[, key2, key3,...])`
 
 参数|数据类型|描述
 :-|:-|:-|
@@ -218,11 +317,15 @@ store.has('name')   // true
 
 ```js
 const store = Store.local('local-store')
-store.set('name', 'store')
-store.set('keys', ['name', 'age', 'sex', 'qq', 'tel'])
+store.sets({ 
+    name: 'store',
+    age: 24,
+    sex: '男',
+    keys: ['name', 'age', 'sex', 'qq', 'tel'],
+})
 
 store.remove('keys')
-store.has('keys')       // false
+store.remove('name', 'age')
 ```
 
 ## store.clear()

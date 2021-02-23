@@ -27,6 +27,7 @@ export default class Store {
      */
     #data: Data = {}
 
+    /** 事件管理器 */
     public events: Events = new Events()
 
     /**
@@ -62,8 +63,11 @@ export default class Store {
 
         // 自定义 storage change 事件的回调函数
         const storagechangefn = (e: CustomEventInit) => {
-            if (e.detail && e.detail.namespace === this.namespace && e.detail.uuid !== this.#uuid) {
-                this.synchrodata(false)
+            if (e.detail && e.detail.namespace === this.namespace) {
+                if (e.detail.uuid !== this.#uuid) {
+                    this.synchrodata(false)
+                }
+                this.events.emeit('change')
             }
         }
 
@@ -189,6 +193,7 @@ export default class Store {
      */
     public destroy() {
         this.events.emeit('destory')
+        this.events.clear()
         this.#data = {}
     }
 

@@ -25,6 +25,11 @@
 
         const l3 = Store.local('l1')
         l3.set('age', 12)
+
+        s1.events.on('change', () => console.log(1))
+        s1.events.once('change', () => console.log(2))
+        s1.events.once('change', () => console.log(3))
+        s1.events.on('change', () => console.log(4))
     </script>
 </body>
 
